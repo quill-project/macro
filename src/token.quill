@@ -43,7 +43,124 @@ pub enum TokenKind(
     Pipe
 )
 
+pub fun TokenKind::as_hash(self: TokenKind) -> Int {
+    match self {
+        Ident { return 0 }
+        Keyword { return 1 }
+        Int { return 2 }
+        Float { return 3 }
+        Bool { return 4 }
+        Unit { return 5 }
+        String { return 6 }
+
+        TripleDots { return 7 }
+        
+        LessEq { return 8 }
+        GreaterEq { return 9 }
+        DoubleEq { return 10 }
+        NotEq { return 11 }
+        ArrowRight { return 12 }
+        DoubleAmp { return 13 }
+        DoublePipe { return 14 }
+        PathSep { return 15 }
+        Triangle { return 16 }
+        
+        ParenOpen { return 17 }
+        ParenClose { return 18 }
+        BraceOpen { return 19 }
+        BraceClose { return 20 }
+        BracketOpen { return 21 }
+        BracketClose { return 22 }
+        Less { return 23 }
+        Greater { return 24 }
+        Eq { return 25 }
+        Plus { return 26 }
+        Minus { return 27 }
+        Asterisk { return 28 }
+        Slash { return 29 }
+        Percent { return 30 }
+        Colon { return 31 }
+        Comma { return 32 }
+        Excl { return 33 }
+        Dot { return 34 }
+        Pipe { return 35 }
+    }
+}
+
+pub fun TokenKind::eq(lhs: TokenKind, rhs: TokenKind) -> Bool
+    = TokenKind::as_hash(lhs) == TokenKind::as_hash(rhs)
+
+pub fun TokenKind::not_eq(lhs: TokenKind, rhs: TokenKind) -> Bool
+    = TokenKind::as_hash(lhs) != TokenKind::as_hash(rhs)
+
+pub fun TokenKind::as_string(self: TokenKind) -> String {
+    match self {
+        Ident { return "Ident" }
+        Keyword { return "Keyword" }
+        Int { return "Int" }
+        Float { return "Float" }
+        Bool { return "Bool" }
+        Unit { return "Unit" }
+        String { return "String" }
+
+        TripleDots { return "TripleDots" }
+        
+        LessEq { return "LessEq" }
+        GreaterEq { return "GreaterEq" }
+        DoubleEq { return "DoubleEq" }
+        NotEq { return "NotEq" }
+        ArrowRight { return "ArrowRight" }
+        DoubleAmp { return "DoubleAmp" }
+        DoublePipe { return "DoublePipe" }
+        PathSep { return "PathSep" }
+        Triangle { return "Triangle" }
+        
+        ParenOpen { return "ParenOpen" }
+        ParenClose { return "ParenClose" }
+        BraceOpen { return "BraceOpen" }
+        BraceClose { return "BraceClose" }
+        BracketOpen { return "BracketOpen" }
+        BracketClose { return "BracketClose" }
+        Less { return "Less" }
+        Greater { return "Greater" }
+        Eq { return "Eq" }
+        Plus { return "Plus" }
+        Minus { return "Minus" }
+        Asterisk { return "Asterisk" }
+        Slash { return "Slash" }
+        Percent { return "Percent" }
+        Colon { return "Colon" }
+        Comma { return "Comma" }
+        Excl { return "Excl" }
+        Dot { return "Dot" }
+        Pipe { return "Pipe" }
+    }
+}
+
+pub fun TokenKind::clone(self: TokenKind) -> TokenKind = self
+
+
 pub struct Token(
     kind: TokenKind,
     content: String
 )
+
+pub fun Token::as_hash(self: Token) -> Int
+    = self.content |> as_hash()
+
+pub fun Token::eq(lhs: Token, rhs: Token) -> Bool
+    = lhs.kind == rhs.kind
+    && lhs.content == rhs.content
+
+pub fun Token::not_eq(lhs: Token, rhs: Token) -> Bool
+    = lhs.kind != rhs.kind
+    || lhs.content != rhs.content
+
+pub fun Token::as_string(self: Token) -> String
+    = self.kind |> as_string()
+    |> concat("(")
+    |> concat(self.content)
+    |> concat(")")
+
+pub fun Token::clone(self: Token) -> mut Token
+    = Token(self.kind, self.content)

@@ -8,8 +8,7 @@ struct Compiler(
     parse_type: Fun(List[Token]) -> Option[Node],
     parse_expr: Fun(List[Token]) -> Option[Node],
     parse_stmt: Fun(List[Token]) -> Option[Node],
-    parse_decl: Fun(List[Token]) -> Option[Node],
-    stringify_node: Fun(Node) -> String
+    parse_decl: Fun(List[Token]) -> Option[Node]
 )
 
 /// Used by compilers to create an instance of the compiler context type.
@@ -18,10 +17,9 @@ pub fun Compiler::impl(
     parse_type: Fun(List[Token]) -> Option[Node],
     parse_expr: Fun(List[Token]) -> Option[Node],
     parse_stmt: Fun(List[Token]) -> Option[Node],
-    parse_decl: Fun(List[Token]) -> Option[Node],
-    stringify_node: Fun(Node) -> String
+    parse_decl: Fun(List[Token]) -> Option[Node]
 ) -> Compiler = Compiler(
-    tokenize, parse_type, parse_expr, parse_stmt, parse_decl, stringify_node
+    tokenize, parse_type, parse_expr, parse_stmt, parse_decl
 )
 
 /// Attempts to fully convert the given input string to a list of Quill tokens.
@@ -69,7 +67,3 @@ pub fun parse_stmt(input: List[Token], ctx: Compiler) -> Option[Node]
 /// simply ignored.
 pub fun parse_decl(input: List[Token], ctx: Compiler) -> Option[Node]
     = ctx.parse_decl(input)
-
-/// Converts the given Quill node to the equivalent Quill source string.
-pub fun stringify_node(input: Node, ctx: Compiler) -> String
-    = ctx.stringify_node(input)

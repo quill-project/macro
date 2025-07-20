@@ -1,12 +1,74 @@
 
 mod macro
 
+/// Takes any string and converts into something that can be inserted into a
+/// Quill string literal and parsed back into the given input string when
+/// tokenized.
+pub fun escape_quill_string(text: String) -> String
+    = text
+    |> chars()
+    |> map[String, String](|c| {
+        match c {
+            "\"" { return "\\\"" }
+            "\x08" { return "\\b" }
+            "\x0C" { return "\\f" }
+            "\n" { return "\\n" }
+            "\r" { return "\\r" }
+            "\x09" { return "\\t" }
+            "\\" { return "\\\\" }
+            _ { return c }
+        }
+    })
+    |> join("")
+
+
+
 pub struct LocalDecl(
     mutable: Bool, 
     name: String, 
     type: Option[Node], 
     value: Node
 )
+
+pub fun LocalDecl::as_hash(self: LocalDecl) -> Int
+    = self.mutable |> as_hash()
+    |> hash::combine_ord(self.name |> as_hash())
+    |> hash::combine_ord(self.type |> as_hash())
+    |> hash::combine_ord(self.value |> as_hash())
+
+pub fun LocalDecl::eq(lhs: LocalDecl, rhs: LocalDecl) -> Bool
+    = lhs.mutable == rhs.mutable
+    && lhs.name == rhs.name
+    && lhs.type == rhs.type
+    && lhs.value == rhs.value
+
+pub fun LocalDecl::not_eq(lhs: LocalDecl, rhs: LocalDecl) -> Bool
+    = !LocalDecl::eq(lhs, rhs)
+
+pub fun LocalDecl::as_string(self: LocalDecl) -> String {
+    val r = StringBuilder::empty()
+    r |> push(if self.mutable { "mut " } else { "val " })
+    r |> push(self.name)
+    match self.type {
+        Some(t) {
+            r |> push(": ")
+            r |> push(t |> as_string())
+        }
+        None {}
+    }
+    r |> push(" = ")
+    r |> push(self.value |> as_string())
+    return r |> as_string()
+}
+
+pub fun LocalDecl::clone(self: LocalDecl) -> mut LocalDecl = LocalDecl(
+    self.mutable |> clone(),
+    self.name |> clone(),
+    self.type |> clone(),
+    self.value |> clone()
+)
+
+
 
 pub struct GlobalDecl(
     public: Bool, 
@@ -15,6 +77,45 @@ pub struct GlobalDecl(
     type: Node, 
     value: Node
 )
+
+pub fun GlobalDecl::as_hash(self: GlobalDecl) -> Int
+    = self.public |> as_hash()
+    |> hash::combine_ord(self.mutable |> as_hash())
+    |> hash::combine_ord(self.path |> as_hash())
+    |> hash::combine_ord(self.type |> as_hash())
+    |> hash::combine_ord(self.value |> as_hash())
+
+pub fun GlobalDecl::eq(lhs: GlobalDecl, rhs: GlobalDecl) -> Bool
+    = lhs.public == rhs.public
+    && lhs.mutable == rhs.mutable
+    && lhs.path == rhs.path
+    && lhs.type == rhs.type
+    && lhs.value == rhs.value
+
+pub fun GlobalDecl::not_eq(lhs: GlobalDecl, rhs: GlobalDecl) -> Bool
+    = !GlobalDecl::eq(lhs, rhs)
+
+pub fun GlobalDecl::as_string(self: GlobalDecl) -> String {
+    val r = StringBuilder::empty()
+    if self.public { r |> push("pub ") }
+    r |> push(if self.mutable { "mut " } else { "val " })
+    r |> push(self.path |> values() |> join("::"))
+    r |> push(": ")
+    r |> push(self.type |> as_string())
+    r |> push(" = ")
+    r |> push(self.value |> as_string())
+    return r |> as_string()
+}
+
+pub fun GlobalDecl::clone(self: GlobalDecl) -> mut GlobalDecl = GlobalDecl(
+    self.public |> clone(),
+    self.mutable |> clone(),
+    self.path |> clone(),
+    self.type |> clone(),
+    self.value |> clone()
+)
+
+
 
 pub struct FunctionDecl(
     public: Bool,
@@ -26,6 +127,70 @@ pub struct FunctionDecl(
     body: List[Node]
 )
 
+pub fun FunctionDecl::as_hash(self: FunctionDecl) -> Int
+    = self.public |> as_hash()
+    |> hash::combine_ord(self.path |> as_hash())
+    |> hash::combine_ord(self.type_args |> as_hash())
+    |> hash::combine_ord(self.args |> as_hash())
+    |> hash::combine_ord(self.varargs |> as_hash())
+    |> hash::combine_ord(self.return_type |> as_hash())
+    |> hash::combine_ord(self.body |> as_hash())
+
+pub fun FunctionDecl::eq(lhs: FunctionDecl, rhs: FunctionDecl) -> Bool
+    = lhs.public == rhs.public
+    && lhs.path == rhs.path
+    && lhs.type_args == rhs.type_args
+    && lhs.args == rhs.args
+    && lhs.varargs == rhs.varargs
+    && lhs.return_type == rhs.return_type
+    && lhs.body == rhs.body
+
+pub fun FunctionDecl::not_eq(lhs: FunctionDecl, rhs: FunctionDecl) -> Bool
+    = !FunctionDecl::eq(lhs, rhs)
+
+pub fun FunctionDecl::as_string(self: FunctionDecl) -> String {
+    val r = StringBuilder::empty()
+    if self.public { r |> push("pub ") }
+    r |> push("fun ")
+    r |> push(self.path |> values() |> join("::"))
+    r |> push("[")
+    r |> push(self.type_args |> values() |> join(", "))
+    r |> push("]")
+    r |> push("(")
+    r |> push(self.args |> indices() |> map[Int, String](|arg_i| {
+        val is_va: Bool = self.varargs && arg_i == (self.args |> length()) - 1
+        val arg: Pair[String, Node] = self.args |> at(arg_i)
+        return (if is_va { "..." } else { "" })
+            |> concat(arg.first)
+            |> concat(": ")
+            |> concat(arg.second |> as_string())
+    }) |> join(", "))
+    r |> push(")")
+    match self.return_type {
+        Some(t) {
+            r |> push(" -> ")
+            r |> push(t |> as_string())
+        }
+        None {}
+    }
+    r |> push(" { ")
+    r |> push(self.body |> values() |> map(Node::as_string) |> join(" "))
+    r |> push(" }")
+    return r |> as_string()
+}
+
+pub fun FunctionDecl::clone(self: FunctionDecl) -> mut FunctionDecl = FunctionDecl(
+    self.public |> clone(),
+    self.path |> clone(),
+    self.type_args |> clone(),
+    self.args |> clone(),
+    self.varargs |> clone(),
+    self.return_type |> clone(),
+    self.body |> clone()
+)
+
+
+
 pub struct ExtFunctionDecl(
     public: Bool,
     path: List[String],
@@ -36,12 +201,171 @@ pub struct ExtFunctionDecl(
     body: String
 )
 
-pub struct TypeDecl(
+pub fun ExtFunctionDecl::as_hash(self: ExtFunctionDecl) -> Int
+    = self.public |> as_hash()
+    |> hash::combine_ord(self.path |> as_hash())
+    |> hash::combine_ord(self.type_args |> as_hash())
+    |> hash::combine_ord(self.args |> as_hash())
+    |> hash::combine_ord(self.varargs |> as_hash())
+    |> hash::combine_ord(self.return_type |> as_hash())
+    |> hash::combine_ord(self.body |> as_hash())
+
+pub fun ExtFunctionDecl::eq(lhs: ExtFunctionDecl, rhs: ExtFunctionDecl) -> Bool
+    = lhs.public == rhs.public
+    && lhs.path == rhs.path
+    && lhs.type_args == rhs.type_args
+    && lhs.args == rhs.args
+    && lhs.varargs == rhs.varargs
+    && lhs.return_type == rhs.return_type
+    && lhs.body == rhs.body
+
+pub fun ExtFunctionDecl::not_eq(lhs: ExtFunctionDecl, rhs: ExtFunctionDecl) -> Bool
+    = !ExtFunctionDecl::eq(lhs, rhs)
+
+pub fun ExtFunctionDecl::as_string(self: ExtFunctionDecl) -> String {
+    val r = StringBuilder::empty()
+    if self.public { r |> push("pub ") }
+    r |> push("ext fun ")
+    r |> push(self.path |> values() |> join("::"))
+    r |> push("[")
+    r |> push(self.type_args |> values() |> join(", "))
+    r |> push("]")
+    r |> push("(")
+    r |> push(self.args |> indices() |> map[Int, String](|arg_i| {
+        val is_va: Bool = self.varargs && arg_i == (self.args |> length()) - 1
+        val arg: Pair[String, Node] = self.args |> at(arg_i)
+        return (if is_va { "..." } else { "" })
+            |> concat(arg.first)
+            |> concat(": ")
+            |> concat(arg.second |> as_string())
+    }) |> join(", "))
+    r |> push(")")
+    match self.return_type {
+        Some(t) {
+            r |> push(" -> ")
+            r |> push(t |> as_string())
+        }
+        None {}
+    }
+    r |> push(" = \"")
+    r |> push(escape_quill_string(self.body))
+    r |> push("\"")
+    return r |> as_string()
+}
+
+pub fun ExtFunctionDecl::clone(self: ExtFunctionDecl) -> mut ExtFunctionDecl = ExtFunctionDecl(
+    self.public |> clone(),
+    self.path |> clone(),
+    self.type_args |> clone(),
+    self.args |> clone(),
+    self.varargs |> clone(),
+    self.return_type |> clone(),
+    self.body |> clone()
+)
+
+
+
+pub struct StructDecl(
     public: Bool,
     path: List[String],
     type_args: List[String],
     members: List[Pair[String, Node]]
 )
+
+pub fun StructDecl::as_hash(self: StructDecl) -> Int
+    = self.public |> as_hash()
+    |> hash::combine_ord(self.path |> as_hash())
+    |> hash::combine_ord(self.type_args |> as_hash())
+    |> hash::combine_ord(self.members |> as_hash())
+
+pub fun StructDecl::eq(lhs: StructDecl, rhs: StructDecl) -> Bool
+    = lhs.public == rhs.public
+    && lhs.path == rhs.path
+    && lhs.type_args == rhs.type_args
+    && lhs.members == rhs.members
+
+pub fun StructDecl::not_eq(lhs: StructDecl, rhs: StructDecl) -> Bool
+    = !StructDecl::eq(lhs, rhs)
+
+pub fun StructDecl::as_string(self: StructDecl) -> String {
+    val r = StringBuilder::empty()
+    if self.public { r |> push("pub ") }
+    r |> push("struct ")
+    r |> push(self.path |> values() |> join("::"))
+    r |> push("[")
+    r |> push(self.type_args |> values() |> join(", "))
+    r |> push("]")
+    r |> push("(")
+    r |> push(self.members 
+        |> values() 
+        |> map[Pair[String, Node], String](
+            |mem| mem.first |> concat(": ") |> concat(mem.second |> as_string())
+        ) 
+        |> join(", ")
+    )
+    r |> push(")")
+    return r |> as_string()
+}
+
+pub fun StructDecl::clone(self: StructDecl) -> mut StructDecl = StructDecl(
+    self.public |> clone(),
+    self.path |> clone(),
+    self.type_args |> clone(),
+    self.members |> clone()
+)
+
+
+
+pub struct EnumDecl(
+    public: Bool,
+    path: List[String],
+    type_args: List[String],
+    members: List[Pair[String, Node]]
+)
+
+pub fun EnumDecl::as_hash(self: EnumDecl) -> Int
+    = self.public |> as_hash()
+    |> hash::combine_ord(self.path |> as_hash())
+    |> hash::combine_ord(self.type_args |> as_hash())
+    |> hash::combine_ord(self.members |> as_hash())
+
+pub fun EnumDecl::eq(lhs: EnumDecl, rhs: EnumDecl) -> Bool
+    = lhs.public == rhs.public
+    && lhs.path == rhs.path
+    && lhs.type_args == rhs.type_args
+    && lhs.members == rhs.members
+
+pub fun EnumDecl::not_eq(lhs: EnumDecl, rhs: EnumDecl) -> Bool
+    = !EnumDecl::eq(lhs, rhs)
+
+pub fun EnumDecl::as_string(self: EnumDecl) -> String {
+    val r = StringBuilder::empty()
+    if self.public { r |> push("pub ") }
+    r |> push("enum ")
+    r |> push(self.path |> values() |> join("::"))
+    r |> push("[")
+    r |> push(self.type_args |> values() |> join(", "))
+    r |> push("]")
+    r |> push("(")
+    r |> push(self.members 
+        |> values() 
+        |> map[Pair[String, Node], String](
+            |mem| mem.first |> concat(": ") |> concat(mem.second |> as_string())
+        ) 
+        |> join(", ")
+    )
+    r |> push(")")
+    return r |> as_string()
+}
+
+pub fun EnumDecl::clone(self: EnumDecl) -> mut EnumDecl = EnumDecl(
+    self.public |> clone(),
+    self.path |> clone(),
+    self.type_args |> clone(),
+    self.members |> clone()
+)
+
+
 
 pub enum Node(
     NamedType: Triplet[Bool, List[String], Option[List[Node]]],
@@ -88,6 +412,303 @@ pub enum Node(
     GlobalDecl: GlobalDecl,
     FunctionDecl: FunctionDecl,
     ExtFunctionDecl: ExtFunctionDecl,
-    StructDecl: TypeDecl,
-    EnumDecl: TypeDecl
+    StructDecl: StructDecl,
+    EnumDecl: EnumDecl
 )
+
+pub fun Node::as_hash(self: Node) -> Int {
+    match self {
+        Node::NamedType(t)       { return t |> as_hash() |> hash::combine_ord( 0) }
+        Node::FuncType(t)        { return t |> as_hash() |> hash::combine_ord( 1) }
+
+        Node::Path(p)            { return p |> as_hash() |> hash::combine_ord( 2) }
+        Node::Int(i)             { return i |> as_hash() |> hash::combine_ord( 3) }
+        Node::Float(f)           { return f |> as_hash() |> hash::combine_ord( 4) }
+        Node::Bool(b)            { return b |> as_hash() |> hash::combine_ord( 5) }
+        Node::Unit               { return 6                                       }
+        Node::String(s)          { return s |> as_hash() |> hash::combine_ord( 7) }
+        Node::Closure(c)         { return c |> as_hash() |> hash::combine_ord( 8) }
+
+        Node::Add(o)             { return o |> as_hash() |> hash::combine_ord( 9) }
+        Node::Subtract(o)        { return o |> as_hash() |> hash::combine_ord(10) }
+        Node::Multiply(o)        { return o |> as_hash() |> hash::combine_ord(11) }
+        Node::Divide(o)          { return o |> as_hash() |> hash::combine_ord(12) }
+        Node::Remainder(o)       { return o |> as_hash() |> hash::combine_ord(13) }
+        Node::Less(o)            { return o |> as_hash() |> hash::combine_ord(14) }
+        Node::Greater(o)         { return o |> as_hash() |> hash::combine_ord(15) }
+        Node::LessEq(o)          { return o |> as_hash() |> hash::combine_ord(16) }
+        Node::GreaterEq(o)       { return o |> as_hash() |> hash::combine_ord(17) }
+        Node::Eq(o)              { return o |> as_hash() |> hash::combine_ord(18) }
+        Node::NotEq(o)           { return o |> as_hash() |> hash::combine_ord(19) }
+        Node::Negate(o)          { return o |> as_hash() |> hash::combine_ord(20) }
+        Node::Not(o)             { return o |> as_hash() |> hash::combine_ord(21) }
+        Node::Member(o)          { return o |> as_hash() |> hash::combine_ord(22) }
+        Node::Invocation(o)      { return o |> as_hash() |> hash::combine_ord(23) }
+        Node::PipedInvocation(o) { return o |> as_hash() |> hash::combine_ord(24) }
+        Node::IfExpr(o)          { return o |> as_hash() |> hash::combine_ord(25) }
+
+        Node::LocalDecl(d)       { return d |> as_hash() |> hash::combine_ord(26) }
+        Node::Assign(o)          { return o |> as_hash() |> hash::combine_ord(27) }
+        Node::Return(v)          { return v |> as_hash() |> hash::combine_ord(28) }
+        Node::Continue           { return 29                                      }
+        Node::Break              { return 30                                      }
+        Node::IfStmt(o)          { return o |> as_hash() |> hash::combine_ord(31) }
+        Node::While(o)           { return o |> as_hash() |> hash::combine_ord(32) }
+        Node::For(o)             { return o |> as_hash() |> hash::combine_ord(33) }
+        Node::Match(o)           { return o |> as_hash() |> hash::combine_ord(34) }
+
+        Node::Module(d)          { return d |> as_hash() |> hash::combine_ord(35) }
+        Node::Use(d)             { return d |> as_hash() |> hash::combine_ord(36) }
+        Node::GlobalDecl(d)      { return d |> as_hash() |> hash::combine_ord(37) }
+        Node::FunctionDecl(d)    { return d |> as_hash() |> hash::combine_ord(38) }
+        Node::ExtFunctionDecl(d) { return d |> as_hash() |> hash::combine_ord(39) }
+        Node::StructDecl(d)      { return d |> as_hash() |> hash::combine_ord(40) }
+        Node::EnumDecl(d)        { return d |> as_hash() |> hash::combine_ord(41) }
+    }
+}
+
+pub fun Node::eq(lhs: Node, rhs: Node) -> Bool {
+    match Pair(lhs, rhs) {
+        Pair(Node::NamedType(a),       Node::NamedType(b)      ) { return a == b }
+        Pair(Node::FuncType(a),        Node::FuncType(b)       ) { return a == b }
+
+        Pair(Node::Path(a),            Node::Path(b)           ) { return a == b }
+        Pair(Node::Int(a),             Node::Int(b)            ) { return a == b }
+        Pair(Node::Float(a),           Node::Float(b)          ) { return a == b }
+        Pair(Node::Bool(a),            Node::Bool(b)           ) { return a == b }
+        Pair(Node::Unit,               Node::Unit              ) { return true   }
+        Pair(Node::String(a),          Node::String(b)         ) { return a == b }
+        Pair(Node::Closure(a),         Node::Closure(b)        ) { return a == b }
+
+        Pair(Node::Add(a),             Node::Add(b)            ) { return a == b }
+        Pair(Node::Subtract(a),        Node::Subtract(b)       ) { return a == b }
+        Pair(Node::Multiply(a),        Node::Multiply(b)       ) { return a == b }
+        Pair(Node::Divide(a),          Node::Divide(b)         ) { return a == b }
+        Pair(Node::Remainder(a),       Node::Remainder(b)      ) { return a == b }
+        Pair(Node::Less(a),            Node::Less(b)           ) { return a == b }
+        Pair(Node::Greater(a),         Node::Greater(b)        ) { return a == b }
+        Pair(Node::LessEq(a),          Node::LessEq(b)         ) { return a == b }
+        Pair(Node::GreaterEq(a),       Node::GreaterEq(b)      ) { return a == b }
+        Pair(Node::Eq(a),              Node::Eq(b)             ) { return a == b }
+        Pair(Node::NotEq(a),           Node::NotEq(b)          ) { return a == b }
+        Pair(Node::Negate(a),          Node::Negate(b)         ) { return a == b }
+        Pair(Node::Not(a),             Node::Not(b)            ) { return a == b }
+        Pair(Node::Member(a),          Node::Member(b)         ) { return a == b }
+        Pair(Node::Invocation(a),      Node::Invocation(b)     ) { return a == b }
+        Pair(Node::PipedInvocation(a), Node::PipedInvocation(b)) { return a == b }
+        Pair(Node::IfExpr(a),          Node::IfExpr(b)         ) { return a == b }
+
+        Pair(Node::LocalDecl(a),       Node::LocalDecl(b)      ) { return a == b }
+        Pair(Node::Assign(a),          Node::Assign(b)         ) { return a == b }
+        Pair(Node::Return(a),          Node::Return(b)         ) { return a == b }
+        Pair(Node::Continue,           Node::Continue          ) { return true   }
+        Pair(Node::Break,              Node::Break             ) { return true   }
+        Pair(Node::IfStmt(a),          Node::IfStmt(b)         ) { return a == b }
+        Pair(Node::While(a),           Node::While(b)          ) { return a == b }
+        Pair(Node::For(a),             Node::For(b)            ) { return a == b }
+        Pair(Node::Match(a),           Node::Match(b)          ) { return a == b }
+
+        Pair(Node::Module(a),          Node::Module(b)         ) { return a == b }
+        Pair(Node::Use(a),             Node::Use(b)            ) { return a == b }
+        Pair(Node::GlobalDecl(a),      Node::GlobalDecl(b)     ) { return a == b }
+        Pair(Node::FunctionDecl(a),    Node::FunctionDecl(b)   ) { return a == b }
+        Pair(Node::ExtFunctionDecl(a), Node::ExtFunctionDecl(b)) { return a == b }
+        Pair(Node::StructDecl(a),      Node::StructDecl(b)     ) { return a == b }
+        Pair(Node::EnumDecl(a),        Node::EnumDecl(b)       ) { return a == b }
+
+        _ { return false }
+    }
+}
+
+pub fun Node::not_eq(lhs: Node, rhs: Node) -> Bool
+    = !Node::eq(lhs, rhs)
+
+pub fun Node::as_string(self: Node) -> String {
+    val r = StringBuilder::empty()
+    match self {
+        Node::NamedType(Triplet(mutable, path, t_args)) {
+            if mutable { r |> push("mut ") }
+            r |> push(path |> values() |> join("::"))
+            match t_args {
+                Some(args) {
+                    r |> push("[")
+                    r |> push(args |> values() |> map(Node::as_string) |> join(", "))
+                    r |> push("]")
+                }
+                None {}
+            }
+        }
+        Node::FuncType(Pair(args, ret)) {
+            r |> push("Fun(")
+            r |> push(args |> values() |> map(Node::as_string) |> join(", "))
+            r |> push(") -> ")
+            r |> push(ret |> as_string())
+        }
+
+        Node::Path(Pair(path, t_args)) {
+            r |> push(path |> values() |> join("::"))
+            match t_args {
+                Some(args) {
+                    r |> push("[")
+                    r |> push(args |> values() |> map(Node::as_string) |> join(", "))
+                    r |> push("]")
+                }
+                None {}
+            }
+        }
+        Node::Int(i) {
+            r |> push(i |> as_string())
+        }
+        Node::Float(f) {
+            match f {
+                Float::INF     { r |> push( "(1.0 / 0.0)") }
+                Float::NEG_INF { r |> push("(-1.0 / 0.0)") }
+                Float::NAN     { r |> push( "(0.0 / 0.0)") }
+                _ { r |> push(f |> as_string()) }
+            }
+        }
+        Node::Bool(b) {
+            r |> push(if b { "true" } else { "false" })
+        }
+        Node::Unit {
+            r |> push("unit")
+        }
+        Node::String(s) {
+            r |> push("\"")
+            r |> push(escape_quill_string(s))
+            r |> push("\"")
+        }
+        Node::Closure(Pair(args, body)) {
+            r |> push("|")
+            r |> push(args |> values() |> join(", "))
+            r |> push("| { ")
+            r |> push(body |> values() |> map(Node::as_string) |> join(" "))
+            r |> push(" }")
+        }
+        
+        Node::Add(Pair(a, b)) {
+            r |> push("(_ + _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::Subtract(Pair(a, b)) {
+            r |> push("(_ - _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::Multiply(Pair(a, b)) {
+            r |> push("(_ * _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::Divide(Pair(a, b)) {
+            r |> push("(_ / _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::Remainder(Pair(a, b)) {
+            r |> push("(_ % _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::Less(Pair(a, b)) {
+            r |> push("(_ < _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::Greater(Pair(a, b)) {
+            r |> push("(_ > _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::LessEq(Pair(a, b)) {
+            r |> push("(_ <= _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::GreaterEq(Pair(a, b)) {
+            r |> push("(_ >= _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::Eq(Pair(a, b)) {
+            r |> push("(_ == _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::NotEq(Pair(a, b)) {
+            r |> push("(_ != _)" |> fmt(a |> as_string(), b |> as_string()))
+        }
+        Node::Negate(x) {
+            r |> push("(-_)" |> fmt(x |> as_string()))
+        }
+        Node::Not(x) {
+            r |> push("(!_)" |> fmt(x |> as_string()))
+        }
+        Node::Member(Pair(a, m)) {
+            r |> push("(_._)" |> fmt(a |> as_string(), m))
+        }
+        Node::Invocation(Pair(i, a)) {
+            r |> push("(")
+            r |> push(i |> as_string())
+            r |> push("(")
+            r |> push(a |> values() |> map(Node::as_string) |> join(", "))
+            r |> push("))")
+        }
+        Node::PipedInvocation(Pair(i, ra)) {
+            val p: Node = ra |> at(0)
+            val a: List[Node] = ra |> slice_from(1)
+            r |> push("(")
+            r |> push(p |> as_string())
+            r |> push(" |> ")
+            r |> push(i |> as_string())
+            r |> push("(")
+            r |> push(a |> values() |> map(Node::as_string) |> join(", "))
+            r |> push("))")
+        }
+        Node::IfExpr(Triplet(c, iv, ev)) {
+            r |> push("if ")
+            r |> push(c |> as_string())
+            r |> push(" { ")
+            r |> push(iv |> as_string())
+            r |> push(" } else { ")
+            r |> push(ev |> as_string())
+            r |> push(" }")
+        }
+        
+        // TODO! statements and declarations
+        _ { return panic("not yet implemented!") }
+    }
+    return r |> as_string()
+}
+
+pub fun Node::clone(self: Node) -> Node {
+    match self {
+        Node::NamedType(t)       { return t |> clone() |> Node::NamedType()       }
+        Node::FuncType(t)        { return t |> clone() |> Node::FuncType()        }
+
+        Node::Path(p)            { return p |> clone() |> Node::Path()            }
+        Node::Int(i)             { return i |> clone() |> Node::Int()             }
+        Node::Float(f)           { return f |> clone() |> Node::Float()           }
+        Node::Bool(b)            { return b |> clone() |> Node::Bool()            }
+        Node::Unit               { return Node::Unit                              }
+        Node::String(s)          { return s |> clone() |> Node::String()          }
+        Node::Closure(c)         { return c |> clone() |> Node::Closure()         }
+
+        Node::Add(o)             { return o |> clone() |> Node::Add()             }
+        Node::Subtract(o)        { return o |> clone() |> Node::Subtract()        }
+        Node::Multiply(o)        { return o |> clone() |> Node::Multiply()        }
+        Node::Divide(o)          { return o |> clone() |> Node::Divide()          }
+        Node::Remainder(o)       { return o |> clone() |> Node::Remainder()       }
+        Node::Less(o)            { return o |> clone() |> Node::Less()            }
+        Node::Greater(o)         { return o |> clone() |> Node::Greater()         }
+        Node::LessEq(o)          { return o |> clone() |> Node::LessEq()          }
+        Node::GreaterEq(o)       { return o |> clone() |> Node::GreaterEq()       }
+        Node::Eq(o)              { return o |> clone() |> Node::Eq()              }
+        Node::NotEq(o)           { return o |> clone() |> Node::NotEq()           }
+        Node::Negate(o)          { return o |> clone() |> Node::Negate()          }
+        Node::Not(o)             { return o |> clone() |> Node::Not()             }
+        Node::Member(o)          { return o |> clone() |> Node::Member()          }
+        Node::Invocation(o)      { return o |> clone() |> Node::Invocation()      }
+        Node::PipedInvocation(o) { return o |> clone() |> Node::PipedInvocation() }
+        Node::IfExpr(o)          { return o |> clone() |> Node::IfExpr()          }
+
+        Node::LocalDecl(d)       { return d |> clone() |> Node::LocalDecl()       }
+        Node::Assign(o)          { return o |> clone() |> Node::Assign()          }
+        Node::Return(v)          { return v |> clone() |> Node::Return()          }
+        Node::Continue           { return Node::Continue                          }
+        Node::Break              { return Node::Break                             }
+        Node::IfStmt(o)          { return o |> clone() |> Node::IfStmt()          }
+        Node::While(o)           { return o |> clone() |> Node::While()           }
+        Node::For(o)             { return o |> clone() |> Node::For()             }
+        Node::Match(o)           { return o |> clone() |> Node::Match()           }
+
+        Node::Module(d)          { return d |> clone() |> Node::Module()          }
+        Node::Use(d)             { return d |> clone() |> Node::Use()             }
+        Node::GlobalDecl(d)      { return d |> clone() |> Node::GlobalDecl()      }
+        Node::FunctionDecl(d)    { return d |> clone() |> Node::FunctionDecl()    }
+        Node::ExtFunctionDecl(d) { return d |> clone() |> Node::ExtFunctionDecl() }
+        Node::StructDecl(d)      { return d |> clone() |> Node::StructDecl()      }
+        Node::EnumDecl(d)        { return d |> clone() |> Node::EnumDecl()        }
+    }
+}
