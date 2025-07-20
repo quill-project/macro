@@ -656,8 +656,101 @@ pub fun Node::as_string(self: Node) -> String {
             r |> push(" }")
         }
         
-        // TODO! statements and declarations
-        _ { return panic("not yet implemented!") }
+        Node::LocalDecl(d) { 
+            r |> push(d |> as_string()) 
+        }
+        Node::Assign(Pair(a, b)) {
+            r |> push(a |> as_string())
+            r |> push(" = ")
+            r |> push(b |> as_string())
+        }
+        Node::Return(v) {
+            r |> push("return ")
+            r |> push(v |> as_string())
+        }
+        Node::Continue {
+            r |> push("continue")
+        }
+        Node::Break {
+            r |> push("break")
+        }
+        Node::IfStmt(Triplet(c, ib, eb)) {
+            r |> push("if ")
+            r |> push(c |> as_string())
+            r |> push(" { ")
+            r |> push(ib |> values() |> map(Node::as_string) |> join(" "))
+            r |> push(" } else { ")
+            r |> push(eb |> values() |> map(Node::as_string) |> join(" "))
+            r |> push(" }")
+        }
+        Node::While(Pair(c, b)) {
+            r |> push("while ")
+            r |> push(c |> as_string())
+            r |> push(" { ")
+            r |> push(b |> values() |> map(Node::as_string) |> join(" "))
+            r |> push(" }")
+        }
+        Node::For(Triplet(vn, i, b)) {
+            r |> push("for ")
+            r |> push(vn)
+            r |> push(": ")
+            r |> push(i |> as_string())
+            r |> push(" { ")
+            r |> push(b |> values() |> map(Node::as_string) |> join(" "))
+            r |> push(" }")
+        }
+        Node::Match(Pair(m, b)) {
+            val branch_as_string: Fun(Pair[List[Node], List[Node]]) -> String = |b| {
+                val pats: String = b.first 
+                    |> values()
+                    |> map(Node::as_string)
+                    |> join(" | ")
+                val body: String = b.second 
+                    |> values()
+                     |> map(Node::as_string)
+                     |> join(" ")
+                return pats
+                    |> concat(" { ") 
+                    |> concat(body) 
+                    |> concat(" }")
+            }
+            r |> push("match ")
+            r |> push(m |> as_string())
+            r |> push(" { ")
+            r |> push(b |> values() |> map(branch_as_string) |> join(" "))
+            r |> push(" }")
+        }
+
+        Node::Module(p) {
+            if p |> is_empty() { return "" }
+            r |> push("mod ")
+            r |> push(p |> values() |> join("::"))
+        }
+        Node::Use(aa) {
+            val alias_as_string: Fun(Pair[String, List[String]]) -> String = |a| {
+                val p: String = a.second |> values() |> join("::")
+                if a.first == "*" { return p }
+                return p |> concat(" as ") |> concat(a.first)
+            }
+            r |> push("use (")
+            r |> push(aa |> values() |> map(alias_as_string) |> join(", "))
+            r |> push(")")
+        }
+        Node::GlobalDecl(d) {
+            r |> push(d |> as_string())
+        }
+        Node::FunctionDecl(d) {
+            r |> push(d |> as_string())
+        }
+        Node::ExtFunctionDecl(d) {
+            r |> push(d |> as_string())
+        }
+        Node::StructDecl(d) {
+            r |> push(d |> as_string())
+        }
+        Node::EnumDecl(d) {
+            r |> push(d |> as_string())
+        }
     }
     return r |> as_string()
 }
