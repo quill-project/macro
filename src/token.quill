@@ -1,0 +1,49 @@
+
+mod macro
+
+pub enum TokenKind(
+    Ident,
+    Keyword,
+    Int,
+    Float,
+    Bool,
+    Unit,
+    String,
+
+    TripleDots,
+    
+    LessEq,
+    GreaterEq,
+    DoubleEq,
+    NotEq,
+    ArrowRight,
+    DoubleAmp,
+    DoublePipe,
+    PathSep,
+    Triangle,
+    
+    ParenOpen,
+    ParenClose,
+    BraceOpen,
+    BraceClose,
+    BracketOpen,
+    BracketClose,
+    Less,
+    Greater,
+    Eq,
+    Plus,
+    Minus,
+    Asterisk,
+    Slash,
+    Percent,
+    Colon,
+    Comma,
+    Excl,
+    Dot,
+    Pipe
+)
+
+pub struct Token(
+    kind: TokenKind,
+    content: String
+)

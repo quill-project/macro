@@ -1,0 +1,93 @@
+
+mod macro
+
+pub struct LocalDecl(
+    mutable: Bool, 
+    name: String, 
+    type: Option[Node], 
+    value: Node
+)
+
+pub struct GlobalDecl(
+    public: Bool, 
+    mutable: Bool,
+    path: List[String], 
+    type: Node, 
+    value: Node
+)
+
+pub struct FunctionDecl(
+    public: Bool,
+    path: List[String],
+    type_args: List[String],
+    args: List[Pair[String, Node]],
+    varargs: Bool,
+    return_type: Option[Node],
+    body: List[Node]
+)
+
+pub struct ExtFunctionDecl(
+    public: Bool,
+    path: List[String],
+    type_args: List[String],
+    args: List[Pair[String, Node]],
+    varargs: Bool,
+    return_type: Option[Node],
+    body: String
+)
+
+pub struct TypeDecl(
+    public: Bool,
+    path: List[String],
+    type_args: List[String],
+    members: List[Pair[String, Node]]
+)
+
+pub enum Node(
+    NamedType: Triplet[Bool, List[String], Option[List[Node]]],
+    FuncType: Pair[List[Node], Node],
+
+    Path: Pair[List[String], Option[List[Node]]],
+    Int: Int,
+    Float: Float,
+    Bool: Bool,
+    Unit,
+    String: String,
+    Closure: Pair[List[String], List[Node]],
+
+    Add: Pair[Node, Node],
+    Subtract: Pair[Node, Node],
+    Multiply: Pair[Node, Node],
+    Divide: Pair[Node, Node],
+    Remainder: Pair[Node, Node],
+    Less: Pair[Node, Node],
+    Greater: Pair[Node, Node],
+    LessEq: Pair[Node, Node],
+    GreaterEq: Pair[Node, Node],
+    Eq: Pair[Node, Node],
+    NotEq: Pair[Node, Node],
+    Negate: Node,
+    Not: Node,
+    Member: Pair[Node, String],
+    Invocation: Pair[Node, List[Node]],
+    PipedInvocation: Pair[Node, List[Node]],
+    IfExpr: Triplet[Node, Node, Node],
+
+    LocalDecl: LocalDecl,
+    Assign: Pair[Node, Node],
+    Return: Node,
+    Continue,
+    Break,
+    IfStmt: Triplet[Node, List[Node], List[Node]],
+    While: Pair[Node, List[Node]],
+    For: Triplet[String, Node, List[Node]],
+    Match: Pair[Node, List[Pair[List[Node], List[Node]]]],
+
+    Module: List[String],
+    Use: List[Pair[String, List[String]]],
+    GlobalDecl: GlobalDecl,
+    FunctionDecl: FunctionDecl,
+    ExtFunctionDecl: ExtFunctionDecl,
+    StructDecl: TypeDecl,
+    EnumDecl: TypeDecl
+)

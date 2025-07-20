@@ -1,0 +1,75 @@
+
+mod macro
+
+/// Represents the compiler instance and provides key functions for parsing.
+/// Macros receive an instance of this type and use it for such operations.
+struct Compiler(
+    tokenize: Fun(String) -> Option[List[Token]],
+    parse_type: Fun(List[Token]) -> Option[Node],
+    parse_expr: Fun(List[Token]) -> Option[Node],
+    parse_stmt: Fun(List[Token]) -> Option[Node],
+    parse_decl: Fun(List[Token]) -> Option[Node],
+    stringify_node: Fun(Node) -> String
+)
+
+/// Used by compilers to create an instance of the compiler context type.
+pub fun Compiler::impl(
+    tokenize: Fun(String) -> Option[List[Token]],
+    parse_type: Fun(List[Token]) -> Option[Node],
+    parse_expr: Fun(List[Token]) -> Option[Node],
+    parse_stmt: Fun(List[Token]) -> Option[Node],
+    parse_decl: Fun(List[Token]) -> Option[Node],
+    stringify_node: Fun(Node) -> String
+) -> Compiler = Compiler(
+    tokenize, parse_type, parse_expr, parse_stmt, parse_decl, stringify_node
+)
+
+/// Attempts to fully convert the given input string to a list of Quill tokens.
+/// If the input string is not valid Quill code no tokens are returned.
+pub fun tokenize(input: String, ctx: Compiler) -> Option[List[Token]]
+    = ctx.tokenize(input)
+
+/// Attempts to parse the given Quill tokens as a Quill type declaration,
+/// such as 'Int', 'List[Int]' or 'Fun(Float, Float) -> Float' and returns
+/// the result as a node.
+/// If the input is not a valid Quill type declaration no node is returned.
+/// If there are any tokens remaining after the first type declaration they are
+/// simply ignored.
+pub fun parse_type(input: List[Token], ctx: Compiler) -> Option[Node]
+    = ctx.parse_type(input)
+
+/// Attempts to parse the given Quill tokens as a Quill expression,
+/// such as 'a + b', '3 * 5' or 'println("Hello, world!")' and returns
+/// the result as a node.
+/// If the input is not a valid Quill expression no node is returned.
+/// If there are any tokens remaining after the first expression they are
+/// simply ignored.
+pub fun parse_expr(input: List[Token], ctx: Compiler) -> Option[Node]
+    = ctx.parse_expr(input)
+
+/// Attempts to parse the given Quill tokens as a Quill statement,
+/// such as 'if a < b { return a } else { return b }', 'break' or 'a = b'
+/// and returns the result as a node.
+/// This function will NOT parse top level declarations such as those for
+/// types or functions.
+/// If the input is not a valid local Quill statement no node is returned.
+/// If there are any tokens remaining after the first statement they are
+/// simply ignored.
+pub fun parse_stmt(input: List[Token], ctx: Compiler) -> Option[Node]
+    = ctx.parse_stmt(input)
+
+/// Attempts to parse the given Quill tokens as a Quill top level declaration,
+/// such as 'fun add(a: Int, b: Int) -> Int = a + b' 
+/// or 'pub struct Cat(name: String, age: Int)'
+/// and returns the result as a node.
+/// This function will NOT parse local declarations such as 
+/// 'while a < b { a = a + 1 }' or 'if i == 0 { return unit }'.
+/// If the input is not a valid Quill top level declaration no node is returned.
+/// If there are any tokens remaining after the first declaration they are
+/// simply ignored.
+pub fun parse_decl(input: List[Token], ctx: Compiler) -> Option[Node]
+    = ctx.parse_decl(input)
+
+/// Converts the given Quill node to the equivalent Quill source string.
+pub fun stringify_node(input: Node, ctx: Compiler) -> String
+    = ctx.stringify_node(input)
