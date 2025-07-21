@@ -40,7 +40,8 @@ pub enum TokenKind(
     Comma,
     Excl,
     Dot,
-    Pipe
+    Pipe,
+    At
 )
 
 pub fun TokenKind::as_hash(self: TokenKind) -> Int {
@@ -84,6 +85,7 @@ pub fun TokenKind::as_hash(self: TokenKind) -> Int {
         Excl { return 33 }
         Dot { return 34 }
         Pipe { return 35 }
+        At { return 36 }
     }
 }
 
@@ -134,6 +136,7 @@ pub fun TokenKind::as_string(self: TokenKind) -> String {
         Excl { return "Excl" }
         Dot { return "Dot" }
         Pipe { return "Pipe" }
+        At { return "At" }
     }
 }
 
